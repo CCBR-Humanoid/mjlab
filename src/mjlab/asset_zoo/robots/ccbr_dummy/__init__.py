@@ -1,0 +1,1 @@
+"""CCBR dummy quadruped."""
