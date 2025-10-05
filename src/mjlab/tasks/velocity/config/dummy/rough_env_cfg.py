@@ -59,6 +59,8 @@ class CCBRDummyRoughEnvCfg(LocomotionVelocityEnvCfg):
       r"dof_bottom.*": 0.6,        # Calf joints
     }
 
+    self.rewards.action_rate_l2.weight = -0.001
+
     self.events.foot_friction.params["asset_cfg"].geom_names = geom_names
 
     self.viewer.body_name = "torso"

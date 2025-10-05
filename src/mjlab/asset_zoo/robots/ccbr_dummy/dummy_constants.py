@@ -67,6 +67,13 @@ DAMPING_HIP = 2 * DAMPING_RATIO * HIP_ACTUATOR.reflected_inertia * NATURAL_FREQ
 STIFFNESS_KNEE = KNEE_ACTUATOR.reflected_inertia * NATURAL_FREQ**2
 DAMPING_KNEE = 2 * DAMPING_RATIO * KNEE_ACTUATOR.reflected_inertia * NATURAL_FREQ
 
+# Overriding this because I suspect the link inertias are extremely non-negligible. Check this
+STIFFNESS_HIP *= 2.0
+STIFFNESS_KNEE *= 2.0
+
+DAMPING_HIP *= 3.0
+DAMPING_KNEE *= 3.0
+
 # Actuator configs based on dummy.xml joint structure
 # Using regex patterns to match joint groups:
 # - "dof_[fb][rl]" matches: dof_fr, dof_br, dof_fl, dof_bl (hip joints)
@@ -85,7 +92,7 @@ DUMMY_KNEE_ACTUATOR_CFG = ActuatorCfg(
   stiffness=STIFFNESS_KNEE,
   damping=DAMPING_KNEE,
   armature=KNEE_ACTUATOR.reflected_inertia,
-
+)
 
 ##
 # Keyframes.
