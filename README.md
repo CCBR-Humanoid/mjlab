@@ -15,6 +15,17 @@ just run
 ./train.sh
 ```
 
+### To view your logs, run
+
+```bash
+tensorboard --logdir path/to/your/logs
+```
+
+And the logs are in your root directory. So you'll typically run something like:
+```bash
+tensorboard --logdir logs/rsl_rl/dummy_velocity/date
+```
+
 mjlab combines [Isaac Lab](https://github.com/isaac-sim/IsaacLab)'s proven API with best-in-class [MuJoCo](https://github.com/google-deepmind/mujoco_warp) physics to provide lightweight, modular abstractions for RL robotics research and sim-to-real deployment.
 
 
