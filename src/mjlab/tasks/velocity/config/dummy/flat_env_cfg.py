@@ -25,5 +25,8 @@ class CCBRDummyFlatEnvCfg_PLAY(CCBRDummyFlatEnvCfg):
     self.episode_length_s = int(1e9)
 
     self.curriculum.command_vel = None
-    self.commands.twist.ranges.lin_vel_x = (-3.0, 3.0)
-    self.commands.twist.ranges.ang_vel_z = (-3.0, 3.0)
+    self.events.push_robot = None
+    # self.commands.twist.ranges.lin_vel_x = (-3.0, 3.0)
+    self.commands.twist.ranges.lin_vel_y = (1.0, 1.1)
+    self.commands.twist.ranges.ang_vel_z = (0, 0.1)
+    # self.commands.twist.ranges.ang_vel_z = (-3.0, 3.0)

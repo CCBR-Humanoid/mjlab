@@ -49,12 +49,14 @@ KNEE_GEAR_RATIO = HIP_GEAR_RATIO * 1.5
 HIP_ACTUATOR = ElectricActuator(
   reflected_inertia=reflected_inertia(ROTOR_INERTIA, HIP_GEAR_RATIO),
   velocity_limit=30.1,  # Estimated based on typical servo specs
-  effort_limit=60.0,    # From robstride_03 class
+  # effort_limit=60.0,    # From robstride_03 class
+  effort_limit=120.0,
 )
 KNEE_ACTUATOR = ElectricActuator(
   reflected_inertia=reflected_inertia(ROTOR_INERTIA, KNEE_GEAR_RATIO),
   velocity_limit=20.06,  # Estimated based on typical servo specs
-  effort_limit=17.0,     # From robstride_02 class
+  # effort_limit=17.0,     # From robstride_02 class
+  effort_limit=80.0,
 )
 
 NATURAL_FREQ = 10 * 2.0 * 3.1415926535  # 10Hz
@@ -68,11 +70,16 @@ STIFFNESS_KNEE = KNEE_ACTUATOR.reflected_inertia * NATURAL_FREQ**2
 DAMPING_KNEE = 2 * DAMPING_RATIO * KNEE_ACTUATOR.reflected_inertia * NATURAL_FREQ
 
 # Overriding this because I suspect the link inertias are extremely non-negligible. Check this
-STIFFNESS_HIP *= 2.0
-STIFFNESS_KNEE *= 2.0
+# STIFFNESS_HIP *= 2.0
+# STIFFNESS_KNEE *= 2.0
 
-DAMPING_HIP *= 3.0
-DAMPING_KNEE *= 3.0
+# DAMPING_HIP *= 3.0
+# DAMPING_KNEE *= 3.0
+STIFFNESS_HIP = 160.0
+STIFFNESS_KNEE = 120.0
+
+DAMPING_HIP = 10.0
+DAMPING_KNEE = 5.0
 
 # Actuator configs based on dummy.xml joint structure
 # Using regex patterns to match joint groups:
@@ -154,12 +161,19 @@ DUMMY_ARTICULATION = EntityArticulationInfoCfg(
   soft_joint_pos_limit_factor=0.9,
 )
 
+# DUMMY_ROBOT_CFG = EntityCfg(
+#   init_state=INIT_STATE,
+#   collisions=(FULL_COLLISION,),
+#   spec_fn=get_spec,
+#   articulation=DUMMY_ARTICULATION,
+# )
 DUMMY_ROBOT_CFG = EntityCfg(
   init_state=INIT_STATE,
-  collisions=(FULL_COLLISION,),
+  collisions=(FEET_ONLY_COLLISION,),
   spec_fn=get_spec,
   articulation=DUMMY_ARTICULATION,
 )
+
 
 DUMMY_ACTION_SCALE: dict[str, float] = {}
 for a in DUMMY_ARTICULATION.actuators:

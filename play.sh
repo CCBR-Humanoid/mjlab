@@ -10,7 +10,7 @@
   # --checkpoint-file logs/rsl_rl/dummy_velocity/2025-10-02_12-39-18/model_0.pt \
   # --viewer viser \
 
-  MUJOCO_GL=glfw MJLAB_WARP_QUIET=1 mjpython -m mjlab.scripts.play \
+  MUJOCO_GL=glfw MJLAB_WARP_QUIET=1 uv run play \
   --task Mjlab-Velocity-Flat-CCBR-Dummy-Play \
-  --checkpoint-file logs/rsl_rl/dummy_velocity/2025-10-02_14-52-54/model_300.pt \
-  --viewer native \
+  --checkpoint-file logs/rsl_rl/dummy_velocity/2025-10-09_03-19-08/model_9999.pt \
+  --viewer viser \

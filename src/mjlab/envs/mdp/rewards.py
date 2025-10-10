@@ -47,9 +47,9 @@ def joint_acc_l2(
 
 def action_rate_l2(env: ManagerBasedRlEnv) -> torch.Tensor:
   """Penalize the rate of change of the actions using L2 squared kernel."""
-  return torch.sum(
-    torch.square(env.action_manager.action - env.action_manager.prev_action), dim=1
-  )
+  diff = env.action_manager.action - env.action_manager.prev_action
+  l2_sq = torch.sum(torch.square(diff), dim=1)
+  return torch.clamp(l2_sq, min=-100.0, max=100.0)
 
 
 def joint_pos_limits(

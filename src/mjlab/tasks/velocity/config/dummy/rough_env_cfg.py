@@ -6,10 +6,12 @@ from mjlab.asset_zoo.robots.ccbr_dummy.dummy_constants import (
   DUMMY_ROBOT_CFG,
 )
 from mjlab.managers.manager_term_config import TerminationTermCfg as DoneTerm
-from mjlab.managers.manager_term_config import term
+from mjlab.managers.manager_term_config import RewardTermCfg as RewardTerm, term
+from mjlab.managers.scene_entity_config import SceneEntityCfg
 from mjlab.tasks.velocity import mdp
 from mjlab.tasks.velocity.velocity_env_cfg import (
   LocomotionVelocityEnvCfg,
+  RewardCfg,
   TerminationCfg,
 )
 from mjlab.utils.spec_config import ContactSensorCfg
@@ -19,9 +21,62 @@ from mjlab.utils.spec_config import ContactSensorCfg
 class CCBRDummyTerminationCfg(TerminationCfg):
   time_out: DoneTerm = term(DoneTerm, func=mdp.time_out, time_out=True)
   fell_over: DoneTerm = term(
-    DoneTerm, func=mdp.bad_orientation, params={"limit_angle": math.radians(70.0)}
+    DoneTerm, func=mdp.bad_orientation, params={"limit_angle": math.radians(40.0)}
   )
-  bad_height: DoneTerm = term(DoneTerm, func=mdp.root_height_below_minimum, params={"minimum_height": 0.2})
+  bad_height: DoneTerm = term(DoneTerm, func=mdp.root_height_below_minimum, params={"minimum_height": 0.35})
+
+@dataclass
+class CCBRDummyRewardCfg(RewardCfg):
+  track_lin_vel_exp: RewardTerm = term(
+    RewardTerm,
+    func=mdp.track_lin_vel_exp,
+    weight=15.0,
+    params={"command_name": "twist", "std": math.sqrt(0.25)},
+  )
+  stay_alive: RewardTerm = term(
+    RewardTerm,
+    func=mdp.is_alive,
+    weight=0.1,
+  )
+  is_terminated: RewardTerm = term(
+    RewardTerm,
+    func=mdp.is_terminated,
+    weight=-5.0,
+  )
+  track_ang_vel_exp: RewardTerm = term(
+    RewardTerm,
+    func=mdp.track_ang_vel_exp,
+    weight=4.0,
+    params={"command_name": "twist", "std": math.sqrt(0.25)},
+  )
+  pose: RewardTerm = term(
+    RewardTerm,
+    func=mdp.posture,
+    weight=0.5,
+    params={
+      "asset_cfg": SceneEntityCfg("robot", joint_names=[".*"]),
+      "std": [],
+    },
+  )
+  dof_pos_limits: RewardTerm = term(RewardTerm, func=mdp.joint_pos_limits, weight=-0.5)
+  action_rate_l2: RewardTerm = term(RewardTerm, func=mdp.action_rate_l2, weight=-0.01)
+
+  # Unused, only here as an example.
+  air_time: RewardTerm = term(
+    RewardTerm,
+    func=mdp.feet_air_time,
+    weight=0.5,
+    params={
+      "asset_name": "robot",
+      "threshold_min": 0.05,
+      "threshold_max": 0.15,
+      "command_name": "twist",
+      "command_threshold": 0.05,
+      "sensor_names": [],
+      "reward_mode": "on_landing",
+    },
+  )
+
 
 @dataclass
 class CCBRDummyRoughEnvCfg(LocomotionVelocityEnvCfg):
@@ -30,6 +85,7 @@ class CCBRDummyRoughEnvCfg(LocomotionVelocityEnvCfg):
     super().__post_init__()
 
     self.terminations = CCBRDummyTerminationCfg()
+    self.rewards = CCBRDummyRewardCfg()
 
     # Foot contact sensors for dummy robot - using deepest collision geoms
     foot_contact_sensors = [
@@ -59,7 +115,9 @@ class CCBRDummyRoughEnvCfg(LocomotionVelocityEnvCfg):
       r"dof_bottom.*": 0.6,        # Calf joints
     }
 
-    self.rewards.action_rate_l2.weight = -0.001
+    self.rewards.track_lin_vel_exp.weight = 5.0
+
+    self.rewards.action_rate_l2.weight = -0.1
 
     self.events.foot_friction.params["asset_cfg"].geom_names = geom_names
 
