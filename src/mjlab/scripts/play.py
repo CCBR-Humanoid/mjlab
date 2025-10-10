@@ -53,6 +53,12 @@ def run_play(
     RslRlOnPolicyRunnerCfg, load_cfg_from_registry(task, "rl_cfg_entry_point")
   )
 
+  if isinstance(env_cfg, TrackingEnvCfg):
+    if checkpoint_file is not None and motion_file is None:
+      raise ValueError(
+        "Tracking tasks require `motion_file` when using `checkpoint_file`."
+      )
+
   if num_envs is not None:
     env_cfg.scene.num_envs = num_envs
   if camera is not None:
