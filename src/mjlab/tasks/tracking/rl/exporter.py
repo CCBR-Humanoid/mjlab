@@ -38,7 +38,7 @@ class _OnnxMotionPolicyExporter(_OnnxPolicyExporter):
     self.body_quat_w = cmd.motion.body_quat_w.to("cpu")
     self.body_lin_vel_w = cmd.motion.body_lin_vel_w.to("cpu")
     self.body_ang_vel_w = cmd.motion.body_ang_vel_w.to("cpu")
-    self.time_step_total = self.joint_pos.shape[0]
+    self.time_step_total: int = self.joint_pos.shape[0]
 
   def forward(self, x, time_step):  # pyright: ignore [reportIncompatibleMethodOverride]
     time_step_clamped = torch.clamp(
@@ -76,6 +76,7 @@ class _OnnxMotionPolicyExporter(_OnnxPolicyExporter):
         "body_ang_vel_w",
       ],
       dynamic_axes={},
+      dynamo=False,
     )
 
 
@@ -104,17 +105,17 @@ def attach_onnx_metadata(
   motion_term_cfg = motion_term.cfg
   metadata = {
     "run_path": run_path,
-    "joint_names": robot.joint_names,
+    "joint_names": list(robot.joint_names),
     "joint_stiffness": joint_stiffness.tolist(),
     "joint_damping": joint_damping.tolist(),
     "default_joint_pos": robot.data.default_joint_pos[0].cpu().tolist(),
-    "command_names": env.command_manager.active_terms,
+    "command_names": list(env.command_manager.active_terms),
     "observation_names": env.observation_manager.active_terms["policy"],
     "action_scale": joint_action._scale[0].cpu().tolist()
     if isinstance(joint_action._scale, torch.Tensor)
     else joint_action._scale,
     "anchor_body_name": motion_term_cfg.anchor_body_name,
-    "body_names": motion_term_cfg.body_names,
+    "body_names": list(motion_term_cfg.body_names),
   }
 
   model = onnx.load(onnx_path)
