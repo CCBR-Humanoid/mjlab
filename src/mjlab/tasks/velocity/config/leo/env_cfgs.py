@@ -23,10 +23,10 @@ def ccbr_leo_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
   # Leo robot uses Ball_End_Effector collision geoms as foot contacts
   # Mapping: back_left, back_right, front_right, front_left
   geom_names = (
-    "Ball_End_Effector_collision",      # back_left
-    "Ball_End_Effector_2_collision",    # back_right
-    "Ball_End_Effector_4_collision",    # front_right
-    "Ball_End_Effector_3_collision",    # front_left
+    "Ball_End_Effector_collision",  # back_left
+    "Ball_End_Effector_2_collision",  # back_right
+    "Ball_End_Effector_4_collision",  # front_right
+    "Ball_End_Effector_3_collision",  # front_left
   )
   # Foot site names matching the XML sites: BL, BR, FR, FL
   site_names = ("BL", "BR", "FR", "FL")
@@ -69,7 +69,9 @@ def ccbr_leo_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
   cfg.viewer.elevation = -10.0
 
   # Configure foot_height observation with foot sites
-  cfg.observations["critic"].terms["foot_height"].params["asset_cfg"].site_names = site_names
+  cfg.observations["critic"].terms["foot_height"].params[
+    "asset_cfg"
+  ].site_names = site_names
 
   cfg.events["foot_friction"].params["asset_cfg"].geom_names = geom_names
 
@@ -142,7 +144,7 @@ def ccbr_leo_flat_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
   if cfg.curriculum is not None and "command_vel" in cfg.curriculum:
     cfg.curriculum["command_vel"].params["velocity_stages"][1]["step"] = 500 * 24
     cfg.curriculum["command_vel"].params["velocity_stages"][2]["step"] = 1000 * 24
-  
+
   assert cfg.curriculum is not None
   del cfg.curriculum["terrain_levels"]
 
