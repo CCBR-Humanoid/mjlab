@@ -1,5 +1,6 @@
-MUJOCO_GL=glfw MJLAB_WARP_QUIET=1 uv run play \
+MUJOCO_GL=glfw MJLAB_WARP_QUIET=1 mjpython src/mjlab/scripts/play.py \
   Mjlab-Velocity-Flat-CCBR-Leo \
-  --checkpoint-file logs/rsl_rl/ccbr_leo_velocity/2025-12-08_07-41-59/model_5000.pt
+  --checkpoint-file model_5000.pt \
+  --viewer native
   # --export \
   # --motion-file not-a-real-file.npz \
