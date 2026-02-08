@@ -35,6 +35,8 @@ class PlayConfig:
   video_width: int | None = None
   camera: int | str | None = None
   viewer: Literal["auto", "native", "viser"] = "auto"
+  no_terminations: bool = False
+  """Disable all termination conditions (useful for viewing motions with dummy agents)."""
 
   # Internal flag used by demo script.
   _demo_mode: tyro.conf.Suppress[bool] = False
@@ -51,29 +53,36 @@ def run_play(task_id: str, cfg: PlayConfig):
   DUMMY_MODE = cfg.agent in {"zero", "random"}
   TRAINED_MODE = not DUMMY_MODE
 
+  # Disable terminations if requested (useful for viewing motions).
+  if cfg.no_terminations:
+    env_cfg.terminations = {}
+    print("[INFO]: Terminations disabled")
+
   # Check if this is a tracking task by checking for motion command.
-  is_tracking_task = (
-    env_cfg.commands is not None
-    and "motion" in env_cfg.commands
-    and isinstance(env_cfg.commands["motion"], MotionCommandCfg)
+  is_tracking_task = "motion" in env_cfg.commands and isinstance(
+    env_cfg.commands["motion"], MotionCommandCfg
   )
 
   if is_tracking_task and cfg._demo_mode:
     # Demo mode: use uniform sampling to see more diversity with num_envs > 1.
-    assert env_cfg.commands is not None
     motion_cmd = env_cfg.commands["motion"]
     assert isinstance(motion_cmd, MotionCommandCfg)
     motion_cmd.sampling_mode = "uniform"
 
   if is_tracking_task:
-    assert env_cfg.commands is not None
     motion_cmd = env_cfg.commands["motion"]
     assert isinstance(motion_cmd, MotionCommandCfg)
 
-    if DUMMY_MODE:
+    # Check for local motion file first (works for both dummy and trained modes).
+    if cfg.motion_file is not None and Path(cfg.motion_file).exists():
+      print(f"[INFO]: Using local motion file: {cfg.motion_file}")
+      motion_cmd.motion_file = cfg.motion_file
+    elif DUMMY_MODE:
       if not cfg.registry_name:
         raise ValueError(
-          "Tracking tasks require `registry_name` when using dummy agents."
+          "Tracking tasks require either:\n"
+          "  --motion-file /path/to/motion.npz (local file)\n"
+          "  --registry-name your-org/motions/motion-name (download from WandB)"
         )
       # Check if the registry name includes alias, if not, append ":latest".
       registry_name = cfg.registry_name
@@ -159,7 +168,7 @@ def run_play(task_id: str, cfg: PlayConfig):
 
   env = RslRlVecEnvWrapper(env, clip_actions=agent_cfg.clip_actions)
   if DUMMY_MODE:
-    action_shape: tuple[int, ...] = env.unwrapped.action_space.shape  # type: ignore
+    action_shape: tuple[int, ...] = env.unwrapped.action_space.shape
     if cfg.agent == "zero":
 
       class PolicyZero:
@@ -179,7 +188,9 @@ def run_play(task_id: str, cfg: PlayConfig):
   else:
     runner_cls = load_runner_cls(task_id) or OnPolicyRunner
     runner = runner_cls(env, asdict(agent_cfg), device=device)
-    runner.load(str(resume_path), map_location=device)
+    runner.load(
+      str(resume_path), load_cfg={"actor": True}, strict=True, map_location=device
+    )
     policy = runner.get_inference_policy(device=device)
 
   # Handle "auto" viewer selection.
@@ -210,6 +221,7 @@ def main():
     tyro.extras.literal_type_from_choices(all_tasks),
     add_help=False,
     return_unknown_args=True,
+    config=mjlab.TYRO_FLAGS,
   )
 
   # Parse the rest of the arguments + allow overriding env_cfg and agent_cfg.
@@ -220,10 +232,7 @@ def main():
     args=remaining_args,
     default=PlayConfig(),
     prog=sys.argv[0] + f" {chosen_task}",
-    config=(
-      tyro.conf.AvoidSubcommands,
-      tyro.conf.FlagConversionOff,
-    ),
+    config=mjlab.TYRO_FLAGS,
   )
   del remaining_args, agent_cfg
 

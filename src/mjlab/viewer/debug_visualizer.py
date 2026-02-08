@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -21,6 +22,34 @@ class DebugVisualizer(ABC):
 
   env_idx: int
   """Index of the environment being visualized."""
+
+  show_all_envs: bool
+  """If True, visualize all environments instead of just env_idx."""
+
+  def get_env_indices(self, num_envs: int) -> Iterable[int]:
+    """Get the environment indices to visualize.
+
+    This helper method handles the show_all_envs logic so implementations
+    don't need to repeat this boilerplate.
+
+    Args:
+      num_envs: Total number of environments.
+
+    Returns:
+      An iterable of environment indices to visualize.
+    """
+    if self.show_all_envs:
+      return range(num_envs)
+    elif self.env_idx < num_envs:
+      return [self.env_idx]
+    else:
+      return []
+
+  @property
+  @abstractmethod
+  def meansize(self) -> float:
+    """Mean size of the model, used for scaling visualization elements."""
+    ...
 
   @abstractmethod
   def add_arrow(
@@ -136,8 +165,23 @@ class DebugVisualizer(ABC):
 class NullDebugVisualizer:
   """No-op visualizer when visualization is disabled."""
 
-  def __init__(self, env_idx: int = 0):
+  def __init__(self, env_idx: int = 0, meansize: float = 0.1):
     self.env_idx = env_idx
+    self.show_all_envs = False
+    self._meansize = meansize
+
+  def get_env_indices(self, num_envs: int) -> Iterable[int]:
+    """Get the environment indices to visualize."""
+    if self.show_all_envs:
+      return range(num_envs)
+    elif self.env_idx < num_envs:
+      return [self.env_idx]
+    else:
+      return []
+
+  @property
+  def meansize(self) -> float:
+    return self._meansize
 
   def add_arrow(self, start, end, color, width=0.015, label=None) -> None:
     pass

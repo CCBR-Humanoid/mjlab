@@ -52,7 +52,6 @@ def run_evaluate(task_id: str, cfg: EvaluateConfig) -> dict[str, float]:
   env_cfg = load_env_cfg(task_id, play=False)
   agent_cfg = load_rl_cfg(task_id)
 
-  assert env_cfg.commands is not None
   motion_cmd = env_cfg.commands.get("motion")
   if not isinstance(motion_cmd, MotionCommandCfg):
     raise ValueError(f"Task {task_id} is not a tracking task.")
@@ -67,7 +66,7 @@ def run_evaluate(task_id: str, cfg: EvaluateConfig) -> dict[str, float]:
 
   # Evaluation config.
   motion_cmd.sampling_mode = "start"
-  env_cfg.observations["policy"].enable_corruption = True
+  env_cfg.observations["actor"].enable_corruption = True
   env_cfg.events.pop("push_robot", None)
   env_cfg.scene.num_envs = cfg.num_envs
 
@@ -189,13 +188,14 @@ def main():
     tyro.extras.literal_type_from_choices(tracking_tasks),
     add_help=False,
     return_unknown_args=True,
+    config=mjlab.TYRO_FLAGS,
   )
 
   args = tyro.cli(
     EvaluateConfig,
     args=remaining_args,
     prog=sys.argv[0] + f" {chosen_task}",
-    config=(tyro.conf.AvoidSubcommands, tyro.conf.FlagConversionOff),
+    config=mjlab.TYRO_FLAGS,
   )
 
   run_evaluate(chosen_task, args)

@@ -71,6 +71,7 @@ class NativeMujocoViewer(BaseViewer):
     self._yrange: dict[str, tuple[float, float]] = {}  # Per-term y-range.
     self._show_plots: bool = True
     self._show_debug_vis: bool = True
+    self._show_all_envs: bool = False
     self._plot_cfg = plot_cfg or PlotCfg()
 
     self.env_idx = self.cfg.env_idx
@@ -128,8 +129,9 @@ class NativeMujocoViewer(BaseViewer):
 
     with self._mj_lock:
       sim_data = self.env.unwrapped.sim.data
-      self.mjd.qpos[:] = sim_data.qpos[self.env_idx].cpu().numpy()
-      self.mjd.qvel[:] = sim_data.qvel[self.env_idx].cpu().numpy()
+      if self.mjm.nq > 0:
+        self.mjd.qpos[:] = sim_data.qpos[self.env_idx].cpu().numpy()
+        self.mjd.qvel[:] = sim_data.qvel[self.env_idx].cpu().numpy()
       if self.mjm.nmocap > 0:
         self.mjd.mocap_pos[:] = sim_data.mocap_pos[self.env_idx].cpu().numpy()
         self.mjd.mocap_quat[:] = sim_data.mocap_quat[self.env_idx].cpu().numpy()
@@ -174,7 +176,9 @@ class NativeMujocoViewer(BaseViewer):
 
       v.user_scn.ngeom = 0
       if self._show_debug_vis and hasattr(self.env.unwrapped, "update_visualizers"):
-        visualizer = MujocoNativeDebugVisualizer(v.user_scn, self.mjm, self.env_idx)
+        visualizer = MujocoNativeDebugVisualizer(
+          v.user_scn, self.mjm, self.env_idx, self._show_all_envs
+        )
         self.env.unwrapped.update_visualizers(visualizer)
 
       if self.vd is not None:
@@ -195,14 +199,16 @@ class NativeMujocoViewer(BaseViewer):
       v.sync(state_only=True)
 
   def sync_viewer_to_env(self) -> None:
-    """Copy perturbation forces from viewer to env (when not paused)."""
-    if not (self.enable_perturbations and not self._is_paused and self.mjd):
+    """Copy perturbation forces from viewer to env."""
+    if not self.enable_perturbations or self._is_paused or not self.mjd:
       return
+    assert self.mjm is not None
     with self._mj_lock:
       xfrc = torch.as_tensor(
         self.mjd.xfrc_applied, dtype=torch.float, device=self.env.device
       )
-    self.env.unwrapped.sim.data.xfrc_applied[:] = xfrc[None]
+    sim_data = self.env.unwrapped.sim.data
+    sim_data.xfrc_applied[self.env_idx] = xfrc[None]
 
   def close(self) -> None:
     """Close viewer and cleanup."""
@@ -224,6 +230,7 @@ class NativeMujocoViewer(BaseViewer):
   def _safe_key_callback(self, key: int) -> None:
     """Runs on MuJoCo viewer thread; must not touch env/sim directly."""
     from mjlab.viewer.native.keys import (
+      KEY_A,
       KEY_COMMA,
       KEY_ENTER,
       KEY_EQUAL,
@@ -250,6 +257,8 @@ class NativeMujocoViewer(BaseViewer):
       self.request_action("TOGGLE_PLOTS", "TOGGLE_PLOTS")
     elif key == KEY_R:
       self.request_action("TOGGLE_DEBUG_VIS", "TOGGLE_DEBUG_VIS")
+    elif key == KEY_A:
+      self.request_action("TOGGLE_SHOW_ALL_ENVS", "TOGGLE_SHOW_ALL_ENVS")
 
     if self.user_key_callback:
       try:
@@ -284,6 +293,13 @@ class NativeMujocoViewer(BaseViewer):
             VerbosityLevel.INFO,
           )
           return True
+        elif payload == "TOGGLE_SHOW_ALL_ENVS":
+          self._show_all_envs = not self._show_all_envs
+          self.log(
+            f"[INFO] Show all envs {'enabled' if self._show_all_envs else 'disabled'}",
+            VerbosityLevel.INFO,
+          )
+          return True
     return False
 
   def _setup_camera(self) -> None:
@@ -298,21 +314,21 @@ class NativeMujocoViewer(BaseViewer):
         self.viewer.cam.trackbodyid = -1
 
       elif self.cfg.origin_type == self.cfg.OriginType.ASSET_ROOT:
-        if not self.cfg.asset_name:
+        if not self.cfg.entity_name:
           raise ValueError("Asset name must be specified for ASSET_ROOT origin type")
-        robot: Entity = self.env.unwrapped.scene[self.cfg.asset_name]
+        robot: Entity = self.env.unwrapped.scene[self.cfg.entity_name]
         body_id = robot.indexing.root_body_id
         self.viewer.cam.type = mujoco.mjtCamera.mjCAMERA_TRACKING.value
         self.viewer.cam.trackbodyid = body_id
         self.viewer.cam.fixedcamid = -1
 
       else:  # ASSET_BODY
-        if not self.cfg.asset_name or not self.cfg.body_name:
-          raise ValueError("asset_name/body_name required for ASSET_BODY origin type")
-        robot: Entity = self.env.unwrapped.scene[self.cfg.asset_name]
+        if not self.cfg.entity_name or not self.cfg.body_name:
+          raise ValueError("entity_name/body_name required for ASSET_BODY origin type")
+        robot: Entity = self.env.unwrapped.scene[self.cfg.entity_name]
         if self.cfg.body_name not in robot.body_names:
           raise ValueError(
-            f"Body '{self.cfg.body_name}' not found in asset '{self.cfg.asset_name}'"
+            f"Body '{self.cfg.body_name}' not found in asset '{self.cfg.entity_name}'"
           )
         body_id_list, _ = robot.find_bodies(self.cfg.body_name)
         body_id = robot.indexing.bodies[body_id_list[0]].id

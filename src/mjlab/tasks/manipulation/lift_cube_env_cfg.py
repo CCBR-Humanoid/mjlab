@@ -1,16 +1,13 @@
 from mjlab.envs import ManagerBasedRlEnvCfg
 from mjlab.envs.mdp.actions import JointPositionActionCfg
-from mjlab.managers.manager_term_config import (
-  ActionTermCfg,
-  CommandTermCfg,
-  CurriculumTermCfg,
-  EventTermCfg,
-  ObservationGroupCfg,
-  ObservationTermCfg,
-  RewardTermCfg,
-  TerminationTermCfg,
-)
+from mjlab.managers.action_manager import ActionTermCfg
+from mjlab.managers.command_manager import CommandTermCfg
+from mjlab.managers.curriculum_manager import CurriculumTermCfg
+from mjlab.managers.event_manager import EventTermCfg
+from mjlab.managers.observation_manager import ObservationGroupCfg, ObservationTermCfg
+from mjlab.managers.reward_manager import RewardTermCfg
 from mjlab.managers.scene_entity_config import SceneEntityCfg
+from mjlab.managers.termination_manager import TerminationTermCfg
 from mjlab.scene import SceneCfg
 from mjlab.sensor import ContactMatch, ContactSensorCfg
 from mjlab.sim import MujocoCfg, SimulationCfg
@@ -25,7 +22,7 @@ from mjlab.viewer import ViewerConfig
 def make_lift_cube_env_cfg() -> ManagerBasedRlEnvCfg:
   """Create base cube lifting task configuration."""
 
-  policy_terms = {
+  actor_terms = {
     "joint_pos": ObservationTermCfg(
       func=mdp.joint_pos_rel,
       noise=Unoise(n_min=-0.01, n_max=0.01),
@@ -53,16 +50,16 @@ def make_lift_cube_env_cfg() -> ManagerBasedRlEnvCfg:
     "actions": ObservationTermCfg(func=mdp.last_action),
   }
 
-  critic_terms = {**policy_terms}
+  critic_terms = {**actor_terms}
 
   observations = {
-    "policy": ObservationGroupCfg(policy_terms, enable_corruption=True),
+    "actor": ObservationGroupCfg(actor_terms, enable_corruption=True),
     "critic": ObservationGroupCfg(critic_terms, enable_corruption=False),
   }
 
   actions: dict[str, ActionTermCfg] = {
     "joint_pos": JointPositionActionCfg(
-      asset_name="robot",
+      entity_name="robot",
       actuator_names=(".*",),
       scale=0.5,  # Override per-robot.
       use_default_offset=True,
@@ -71,7 +68,7 @@ def make_lift_cube_env_cfg() -> ManagerBasedRlEnvCfg:
 
   commands: dict[str, CommandTermCfg] = {
     "lift_height": LiftingCommandCfg(
-      asset_name="cube",
+      entity_name="cube",
       resampling_time_range=(8.0, 12.0),
       debug_vis=True,
       difficulty="dynamic",
@@ -88,7 +85,7 @@ def make_lift_cube_env_cfg() -> ManagerBasedRlEnvCfg:
     # For positioning the base of the robot at env_origins.
     "reset_base": EventTermCfg(
       func=mdp.reset_root_state_uniform,
-      mode="startup",
+      mode="reset",
       params={
         "pose_range": {},
         "velocity_range": {},
@@ -233,7 +230,7 @@ def make_lift_cube_env_cfg() -> ManagerBasedRlEnvCfg:
     curriculum=curriculum,
     viewer=ViewerConfig(
       origin_type=ViewerConfig.OriginType.ASSET_BODY,
-      asset_name="robot",
+      entity_name="robot",
       body_name="",  # Set per-robot.
       distance=1.5,
       elevation=-5.0,

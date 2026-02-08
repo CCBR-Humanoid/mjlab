@@ -9,10 +9,9 @@ from pathlib import Path
 from typing import Literal, cast
 
 import tyro
-from rsl_rl.runners import OnPolicyRunner
 
 from mjlab.envs import ManagerBasedRlEnv, ManagerBasedRlEnvCfg
-from mjlab.rl import RslRlOnPolicyRunnerCfg, RslRlVecEnvWrapper
+from mjlab.rl import MjlabOnPolicyRunner, RslRlOnPolicyRunnerCfg, RslRlVecEnvWrapper
 from mjlab.tasks.registry import list_tasks, load_env_cfg, load_rl_cfg, load_runner_cls
 from mjlab.tasks.tracking.mdp import MotionCommandCfg
 from mjlab.utils.gpu import select_gpus
@@ -68,29 +67,33 @@ def run_train(task_id: str, cfg: TrainConfig, log_dir: Path) -> None:
   registry_name: str | None = None
 
   # Check if this is a tracking task by checking for motion command.
-  is_tracking_task = (
-    cfg.env.commands is not None
-    and "motion" in cfg.env.commands
-    and isinstance(cfg.env.commands["motion"], MotionCommandCfg)
+  is_tracking_task = "motion" in cfg.env.commands and isinstance(
+    cfg.env.commands["motion"], MotionCommandCfg
   )
 
   if is_tracking_task:
-    if not cfg.registry_name:
-      raise ValueError("Must provide --registry-name for tracking tasks.")
-
-    # Check if the registry name includes alias, if not, append ":latest".
-    registry_name = cast(str, cfg.registry_name)
-    if ":" not in registry_name:
-      registry_name = registry_name + ":latest"
-    import wandb
-
-    api = wandb.Api()
-    artifact = api.artifact(registry_name)
-
-    assert cfg.env.commands is not None
     motion_cmd = cfg.env.commands["motion"]
     assert isinstance(motion_cmd, MotionCommandCfg)
-    motion_cmd.motion_file = str(Path(artifact.download()) / "motion.npz")
+
+    # Check if motion_file is already set (e.g., via CLI --env.commands.motion.motion-file).
+    if motion_cmd.motion_file and Path(motion_cmd.motion_file).exists():
+      print(f"[INFO] Using local motion file: {motion_cmd.motion_file}")
+    elif cfg.registry_name:
+      # Download from WandB registry.
+      registry_name = cast(str, cfg.registry_name)
+      if ":" not in registry_name:
+        registry_name = registry_name + ":latest"
+      import wandb
+
+      api = wandb.Api()
+      artifact = api.artifact(registry_name)
+      motion_cmd.motion_file = str(Path(artifact.download()) / "motion.npz")
+    else:
+      raise ValueError(
+        "For tracking tasks, provide either:\n"
+        "  --registry-name your-org/motions/motion-name (download from WandB)\n"
+        "  --env.commands.motion.motion-file /path/to/motion.npz (local file)"
+      )
 
   # Enable NaN guard if requested.
   if cfg.enable_nan_guard:
@@ -145,7 +148,7 @@ def run_train(task_id: str, cfg: TrainConfig, log_dir: Path) -> None:
 
   runner_cls = load_runner_cls(task_id)
   if runner_cls is None:
-    runner_cls = OnPolicyRunner
+    runner_cls = MjlabOnPolicyRunner
 
   runner_kwargs = {}
   if is_tracking_task:
@@ -231,6 +234,7 @@ def main():
     tyro.extras.literal_type_from_choices(all_tasks),
     add_help=False,
     return_unknown_args=True,
+    config=mjlab.TYRO_FLAGS,
   )
 
   args = tyro.cli(
@@ -238,10 +242,7 @@ def main():
     args=remaining_args,
     default=TrainConfig.from_task(chosen_task),
     prog=sys.argv[0] + f" {chosen_task}",
-    config=(
-      tyro.conf.AvoidSubcommands,
-      tyro.conf.FlagConversionOff,
-    ),
+    config=mjlab.TYRO_FLAGS,
   )
   del remaining_args
 
